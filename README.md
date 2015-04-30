@@ -1,7 +1,7 @@
 pgbuildfarm_member
 =========
 
-`pgbuildfarm_member` is an [Ansible](http://www.ansible.com/) [role](https://docs.ansible.com/playbooks_roles.html) for managing a [PostgreSQL buildfarm](http://buildfarm.postgresql.org/) member ("animal").
+`pgbuildfarm_member` is an [Ansible](http://www.ansible.com/) [role](https://docs.ansible.com/playbooks_roles.html) for managing a [PostgreSQL buildfarm](http://buildfarm.postgresql.org/) member ("animal"). [Available on Ansible Galaxy](https://galaxy.ansible.com/list#/roles/3571).
 
 If you have an unusual platform or configuration and want to make sure it's
 well covered by PostgreSQL's tests, this role will make it easier for you to
