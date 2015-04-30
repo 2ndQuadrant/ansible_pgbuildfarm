@@ -1,0 +1,322 @@
+=comment
+
+Copyright (c) 2003-2010, Andrew Dunstan
+See accompanying License file for license details
+
+{{ ansible_managed }}
+
+=cut
+
+package PGBuild;
+
+use strict;
+
+use warnings FATAL => 'qw';
+
+use vars qw(%conf);
+
+# use vars qw($VERSION); $VERSION = 'REL_4.14';
+
+my $branch;
+{
+    no warnings qw(once);
+    $branch = $main::branch;
+}
+
+%conf =(
+
+    # identity
+    animal => "{{pgbuildfarm_animal}}",
+    secret => "{{pgbuildfarm_secret}}",
+
+    # source code
+    scm => 'git', # or 'cvs'
+    git_keep_mirror => 1,  # manage a git mirror in the build root
+    git_ignore_mirror_failure => 1, # ignore failures in fetching to mirror
+
+    scmrepo => undef, # default is community repo for either type
+    scm_url => undef, # webref for diffs on server - use default for community
+    # git_reference => undef, # for --reference on git repo
+    # cvsmethod => 'update', # or 'export'
+    use_git_cvsserver => undef, # or 'true' if repo is a git cvsserver
+
+    # external commands and control
+    make => 'make', # or gmake if required. can include path if necessary.
+    make_jobs => {{ pgbuildfarm_make_jobs }}, # >1 for parallel "make" and "make check" steps
+    tar_log_cmd => undef, # default is "tar -z -cf runlogs.tgz *.log"
+    # replacement must have the same effect
+
+    # where and how to build
+    # must be absolute, can be either Unix or Windows style for MSVC
+    build_root => '{{pgbuildfarm_buildroot}}',
+    use_vpath => {% if pgbuildfarm_use_vpath is defined %}'{{pgbuildfarm_use_vpath}}'{% else %}undef{% endif %},
+
+    # path to directory with auxiliary web script
+    # if relative, the must be relative to buildroot/branch
+    # Now only used on older Msys installations
+    # aux_path => "../..",
+
+    keep_error_builds => 0,
+    core_file_glob => "core*",   # Linux style, use "*.core" for BSD
+
+    # where to report status
+    target => "http://www.pgbuildfarm.org/cgi-bin/pgstatus.pl",
+
+    # where to report change in OS version or compiler version
+    upgrade_target => "http://www.pgbuildfarm.org/cgi-bin/upgrade.pl",
+
+    # change this to a true value if using MSVC, in which case also
+    # see MSVC section below
+
+    using_msvc => undef,
+
+    # if force_every is a scalar it will be used on all branches, like this
+    # for legacy reasons:
+    # force_every => 336 , # max hours between builds, undef or 0 = unforced
+    # we now prefer it to be a hash with branch names as the keys, like this
+    #
+    # this setting should be kept conservatively high, or not used at all  -
+    # for the most part it's best to let the script decide if something
+    # has changed that requires a new run for the branch.
+    #
+    # an entry with a name of 'default' matches any branch not named
+    force_every => {
+
+        # HEAD => 48,
+        # REL8_3_STABLE => 72,
+        # default => 168,
+    },
+
+    # alerts are triggered if the server doesn't see a build on a branch after
+    # this many hours, and then sent out every so often,
+
+    alerts => {
+
+        #HEAD          => { alert_after => 72,  alert_every => 24 },
+        # REL8_1_STABLE => { alert_after => 240, alert_every => 48 },
+    },
+
+   # include / exclude pattern for files whose trigger a build
+   # if both are specified then they are both applied as filters
+   # undef means don't ignore anything.
+   # exclude qr[/doc/|\.po] to ignore changes to docs and po files (recommended)
+   # undef means null filter.
+    trigger_exclude => qr[/doc/|\.po],
+    trigger_include => undef,
+
+    # settings for mail notices - default to notifying nobody
+    # these lists contain addresses to be notified
+    # must be complete email addresses, as the email is sent from the server
+
+    mail_events =>{
+        all => [], # unconditional
+        fail => [], # if this build fails
+        change => [], # if this build causes a state change
+        green => [], # if this build causes a state change to/from OK
+    },
+
+    # if this flag is set and ccache is used, an unsuccessful run will result
+    # in the removal of the ccache directory (and you need to make sure that
+    # its parent is writable). The default is off - ccache should be able to
+    # handle failures, although there have been suspicions in the past that
+    # it's not quite as reliable as we'd want, and thus we have this option.
+
+    ccache_failure_remove => undef,
+
+	# set this if you want to use ccache with the default ccache directory
+	# location, effectively $buildroot/ccache-$animal.
+
+	use_default_ccache_dir => 1,
+
+    # env settings to apply within build/report process
+    # these settings will be seen by all the processes, including the
+    # configure process.
+
+    build_env =>{
+    	{% for k, v in pgbuildfarm_build_env.iteritems() %}
+	'{{k}}' => {{v}},
+	{% endfor %}
+
+        # use a dedicated cache for the build farm. this should give us
+        # very high hit rates and slightly faster cache searching.
+		#
+		# only set this if you want to set your own path for the ccache directory
+        # CCACHE_DIR => "/path/to/your/ccache",
+
+        ### use these settings for CYGWIN
+        # CYGWIN => 'server',
+        # MAX_CONNECTIONS => '3',
+
+        ### set this if you need a proxy setting for the
+        # outbound web transaction that reports the results
+        # BF_PROXY => 'http://my.proxy.server:portnum/',
+
+        # see below for MSVC settings
+
+    },
+
+    # env settings to pass to configure. These settings will only be seen by
+    # configure.
+    config_env =>{
+    	{% for k, v in pgbuildfarm_config_env.iteritems() %}
+	'{{k}}' => {{v}},
+	{% endfor %}
+    },
+
+    # don't use --prefix or --with-pgport here
+    # they are set up by the script
+    # per-branch config can be done here or
+    # more simply by using the examples below.
+    # (default ldap flag is below because it's not supported in all branches)
+
+    # see below for MSVC config
+
+    config_opts =>[
+    	{% for item in pgbuildfarm_config_opts %}
+	'{{item}}',
+	{% endfor %}
+    ],
+
+    # per-branch contents of extra config for check stages.
+    # each branch has an array of setting lines (no \n required)
+    # a DEFAULT entry is used for all branches, before any
+    # branch-specific settings.
+    extra_config =>{
+        DEFAULT => [
+            q(log_line_prefix = '[%c:%l] '),
+            "log_connections = 'true'",
+            "log_disconnections = 'true'",
+            "log_statement = 'all'",
+            "fsync = off"
+        ],
+    },
+
+    optional_steps =>{
+
+        # which optional steps to run and when to run them
+        # valid keys are: branches, dow, min_hours_since, min_hour, max_hour
+        # find_typedefs => { branches => ['HEAD'], dow => [1,4],
+        #	 			       min_hours_since => 25 },
+        # build_docs => {min_hours_since => 24},
+    },
+
+    # locales to test
+
+    locales => [qw( C )],
+
+    # port number actually used will be based on this param and the branch,
+    # so we ensure they don't collide
+
+    base_port => {{pgbuildfarm_base_port}},
+
+    modules => [qw(TestUpgrade TestDecoding)],
+
+    #
+);
+
+if ($branch eq 'global')
+{
+
+    $conf{branches_to_build} = {{pgbuildfarm_branches}};
+
+    # or 'HEAD_PLUS_LATEST' or 'HEAD_PLUS_LATEST2'
+    # or [qw( HEAD RELx_y_STABLE etc )]
+}
+
+# MSVC setup
+
+if ($conf{using_msvc})
+{
+
+    # all this stuff is to support MSVC builds - it's literally what
+    # a VS Command Prompt sets for me.
+    # make sure it's what your sets for you. There can be subtle differences.
+    # Note: we need to set here whatever would be set in buildenv.bat, as
+    # we aren't going to write that file. This supercedes it. In
+    # particular, the PATH possibly needs to include the path to perl, bison,
+    # flex etc., as well as CVS if that's not in the path.
+
+    my %extra_buildenv =(
+
+        VSINSTALLDIR => 'C:\Program Files\Microsoft Visual Studio 8',
+        VCINSTALLDIR => 'C:\Program Files\Microsoft Visual Studio 8\VC',
+        VS80COMNTOOLS =>
+          'C:\Program Files\Microsoft Visual Studio 8\Common7\Tools',
+        FrameworkDir => 'C:\WINDOWS\Microsoft.NET\Framework',
+        FrameworkVersion => 'v2.0.50727',
+        FrameworkSDKDir =>'C:\Program Files\Microsoft Visual Studio 8\SDK\v2.0',
+        DevEnvDir => 'C:\Program Files\Microsoft Visual Studio 8\Common7\IDE',
+
+        PATH => join(';',
+            'C:\Program Files\Microsoft Visual Studio 8\Common7\IDE',
+            'C:\Program Files\Microsoft Visual Studio 8\VC\BIN',
+            'C:\Program Files\Microsoft Visual Studio 8\Common7\Tools',
+            'C:\Program Files\Microsoft Visual Studio 8\Common7\Tools\bin',
+            'C:\Program Files\Microsoft Visual Studio 8\VC\PlatformSDK\bin',
+            'C:\Program Files\Microsoft Visual Studio 8\SDK\v2.0\bin',
+            'C:\WINDOWS\Microsoft.NET\Framework\v2.0.50727',
+            'C:\Program Files\Microsoft Visual Studio 8\VC\VCPackages',
+            'C:\Perl\Bin',
+            'c:\prog\pgdepend\bin',
+            $ENV{PATH}),
+        INCLUDE => join(';',
+            'C:\Program Files\Microsoft Visual Studio 8\VC\ATLMFC\INCLUDE',
+            'C:\Program Files\Microsoft Visual Studio 8\VC\INCLUDE',
+            'C:\Program Files\Microsoft Visual Studio 8\VC\PlatformSDK\include',
+            'C:\Program Files\Microsoft Visual Studio 8\SDK\v2.0\include',
+            $ENV{INCLUDE}),
+
+        LIB => join(';',
+            'C:\Program Files\Microsoft Visual Studio 8\VC\ATLMFC\LIB',
+            'C:\Program Files\Microsoft Visual Studio 8\VC\LIB'
+              .'C:\Program Files\Microsoft Visual Studio 8\VC\PlatformSDK\lib',
+            'C:\Program Files\Microsoft Visual Studio 8\SDK\v2.0\lib'
+              .$ENV{LIB}),
+
+        LIBPATH => join(';',
+            'C:\WINDOWS\Microsoft.NET\Framework\v2.0.50727',
+            'C:\Program Files\Microsoft Visual Studio 8\VC\ATLMFC\LIB'),
+    );
+
+    %{$conf{build_env}} = (%{$conf{build_env}}, %extra_buildenv);
+
+    # MSVC needs a somewhat different style of config opts (why??)
+    # What we write here will be literally (via Data::Dumper) put into
+    # the config.pl file for the MSVC build.
+
+    $conf{config_opts} ={
+        asserts=>1,                     # --enable-cassert
+        integer_datetimes=>1,           # --enable-integer-datetimes
+        nls=>undef,                     # --enable-nls=<path>
+        tcl=>'c:\tcl',                  # --with-tcl=<path>
+        perl=>'c:\perl',                # --with-perl=<path>
+        python=>'c:\python25',          # --with-python=<path>
+        krb5=> undef,                   # --with-krb5=<path>
+        ldap=>0,                        # --with-ldap
+        openssl=> undef,                # --with-ssl=<path>
+        xml=> undef,                    # --with-libxml=<path>
+        xslt=> undef,                   # --with-libxslt=<path>,
+        iconv=> undef,                  # path to iconv library
+        zlib=> undef,                   # --with-zlib=<path>
+    };
+
+}
+
+##################################
+#
+# examples of per branch processing
+# tailor as required for your site.
+#
+##################################
+if ($branch eq 'HEAD')
+{
+
+    #	push(@{$conf{config_opts}},"--enable-depend");
+}
+elsif ($branch =~ /^REL7_/)
+{
+
+    #    push(@{$conf{config_opts}},"--without-tk");
+}
+
+1;

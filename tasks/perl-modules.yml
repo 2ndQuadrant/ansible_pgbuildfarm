@@ -1,0 +1,14 @@
+---
+
+# Install the modules the buildfarm requires
+# Someone who cares could add direct CPAN support as an alternative here using a role var
+# See http://serverfault.com/q/587727/102814 for how this works
+
+- include: perl-modules-debian.yml
+  when: ansible_pkg_mgr == 'apt'
+
+- include: perl-modules-redhat.yml
+  when: ansible_pkg_mgr == 'yum'
+
+- include: perl-modules-homebrew.yml
+  when: ansible_os_family == 'Darwin'

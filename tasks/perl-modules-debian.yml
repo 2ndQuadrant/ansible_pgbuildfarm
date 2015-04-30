@@ -1,0 +1,11 @@
+---
+- name: Update apt cache
+  apt: update_cache=yes
+  sudo: true
+
+- name: install perl LWP and Digest::SHA on dpkg distros
+  apt: name={{item}} state=installed
+  with_items:
+    - libwww-perl
+    - libdigest-sha-perl
+  sudo: true

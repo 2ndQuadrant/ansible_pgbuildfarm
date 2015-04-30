@@ -1,0 +1,66 @@
+---
+# Install the actual buildfarm, running as its own user
+
+- name: create pgbuildfarm user
+  user: name="{{pgbuildfarm_user}}" home="{{pgbuildfarm_home}}" createhome=yes
+  sudo: yes
+  sudo_user: root
+
+- name: clone buildfarm sources
+  git: repo=https://github.com/PGBuildFarm/client-code.git
+          dest="{{pgbuildfarm_client}}"
+  sudo: yes
+  sudo_user: "{{pgbuildfarm_user}}"
+
+- name: make result directory
+  file: state=directory path="{{pgbuildfarm_buildroot}}" mode="u=rwx,go="
+  sudo: yes
+  sudo_user: "{{pgbuildfarm_user}}"
+
+- name: Copy current config file to temp location
+  command: cp -a "{{pgbuildfarm_config}}" "{{pgbuildfarm_config}}.tmp"
+  # Not doing anything interesting
+  changed_when: false
+  sudo: yes
+  sudo_user: "{{pgbuildfarm_user}}"
+
+- name: template config file
+  template: src="{{pgbuildfarm_config_template}}" dest="{{pgbuildfarm_config}}.tmp" mode="u=rw,go="
+  register: pgbuildfarm_config_apply
+  sudo: yes
+  sudo_user: "{{pgbuildfarm_user}}"
+
+- name: Test-run buildfarm script (this will take a while)
+  command: "{{pgbuildfarm_perl_path}} {{pgbuildfarm_client}}/run_build.pl --config={{pgbuildfarm_config}}.tmp --test {{pgbuildfarm_test_branch}}"
+  environment:
+    PERL5LIB: "{{pgbuildfarm_client}}"
+  sudo: yes
+  sudo_user: "{{pgbuildfarm_user}}"
+  when: "pgbuildfarm_enabled and (pgbuildfarm_force_test or (pgbuildfarm_config_apply.changed and not pgbuildfarm_skip_test))"
+  register: pgbuildfarm_testrun
+  failed_when: "'All stages succeeded' not in pgbuildfarm_testrun.stdout"
+
+- name: Move config file into place
+  command: mv "{{pgbuildfarm_config}}.tmp" "{{pgbuildfarm_config}}"
+  when: pgbuildfarm_config_apply.changed
+  sudo: yes
+  sudo_user: "{{pgbuildfarm_user}}"
+
+- name: Delete temp config file
+  command: rm "{{pgbuildfarm_config}}.tmp"
+  when: not pgbuildfarm_config_apply.changed
+  # Not doing anything interesting
+  changed_when: false
+  sudo: yes
+  sudo_user: "{{pgbuildfarm_user}}"
+
+- name: Install or update buildfarm cron job
+  cron: name="pgbuildfarm_{{pgbuildfarm_animal}}"
+        state="{% if pgbuildfarm_enabled|bool %}present{% else %}absent{% endif %}"
+        user="{{pgbuildfarm_user}}"
+        minute="{{pgbuildfarm_cron_minute}}" hour="{{pgbuildfarm_cron_hour}}"
+        day="{{pgbuildfarm_cron_day}}" month="{{pgbuildfarm_cron_month}}"
+        weekday="{{pgbuildfarm_cron_weekday}}"
+        job="PERL5LIB={{pgbuildfarm_client}} {{pgbuildfarm_perl_path}} {{pgbuildfarm_client}}/run_branches.pl --config={{pgbuildfarm_config}} --run-all {%if not pgbuildfarm_send_enabled|bool %}--nosend{% endif %} 2>&1 | mailx -E -s 'pgbuildfarm {{pgbuildfarm_animal}} cron' {{pgbuildfarm_cron_mailto}}"
+  sudo: yes
+  sudo_user: "root"

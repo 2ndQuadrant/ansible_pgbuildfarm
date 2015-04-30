@@ -1,0 +1,17 @@
+---
+
+- name: check pgbuildfarm_animal is set
+  fail: msg="You must set pgbuildfarm_animal as a role or host variable. Use a made-up temporary one if you have not been assigned one yet."
+  when: "pgbuildfarm_send_enabled and pgbuildfarm_animal == 'CHANGEME'"
+
+- name: check pgbuildfarm_secret is set if sending enabled
+  fail: msg="You must set pgbuildfarm_secret as a role or host variable"
+  when: "pgbuildfarm_send_enabled and pgbuildfarm_secret == 'CHANGEME'"
+
+# See https://github.com/ansible/ansible/issues/10698#issuecomment-93062191
+- name: ensure remote locale is valid
+  command: perl -e 'exit'
+  register: pgbuildfarm_localetest
+  failed_when: "'perl: warning: Setting locale failed' in pgbuildfarm_localetest.stderr"
+  changed_when: false
+

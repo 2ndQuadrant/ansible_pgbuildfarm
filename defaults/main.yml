@@ -1,0 +1,105 @@
+---
+
+# You MUST SET
+#
+# pgbuildfarm_animal = 'animalname'
+# pgbuildfarm_secret = 'yoursecret'
+#
+# for builds to work. See the https://wiki.postgresql.org/wiki/PostgreSQL_Buildfarm_Howto
+
+
+# These are role defaults that may be overridden by host vars
+# or paramertised roles.
+
+# User to run buildfarm as. This user will be created.
+pgbuildfarm_user: "pgbuildfarm"
+
+# Homedir to create buildfarm user with
+pgbuildfarm_home: "/home/{{pgbuildfarm_user}}"
+
+# where to maintain the git clone of the buildfarm client
+# This can be shared across multiple instances on a machine.
+pgbuildfarm_client: "{{pgbuildfarm_home}}/pgbuildfarm-client"
+
+# This buildfarm animal's buildroot. May be shared between buildfarm
+# animals but it'll be better to make it separate.
+pgbuildfarm_buildroot: "{{pgbuildfarm_home}}/buildroot-{{pgbuildfarm_animal}}"
+
+# where to put the buildfarm animal's config.
+pgbuildfarm_config: "{{pgbuildfarm_home}}/build-farm-{{pgbuildfarm_animal}}.conf"
+
+# Should the cron jobs be installed and the test run done?
+# enabled = false implies skip_test = true
+pgbuildfarm_enabled: true
+
+# When you want to make the buildfarm member active, set this to true
+# in your hot config.
+buildfarm_send_enabled: false
+
+# If you want to force a test execution, set this per-group/per-host, on the cmdline, etc
+pgbuildfarm_force_test: false
+# or to suppress a test that would otherwise be run (unless also force_test)
+pgbuildfarm_skip_test: false
+
+# When doing a test build, build a stable branch to reduce the chance that recent HEAD
+# breakage makes the build run fail.
+pgbuildfarm_test_branch: "REL9_4_STABLE"
+
+# Which branches to build
+#
+# See https://wiki.postgresql.org/wiki/PostgreSQL_Buildfarm_Howto
+# and the comments in the template config file.
+#
+# This is a Perl value, so it can be a "'string'" or a "qw(list)" etc.
+pgbuildfarm_branches: "'ALL'"
+
+pgbuildfarm_cron_minute: "*/5"
+pgbuildfarm_cron_hour: "*"
+pgbuildfarm_cron_day: "*"
+pgbuildfarm_cron_month: "*"
+pgbuildfarm_cron_weekday: "*"
+
+# Where to find the Perl interpeter
+pgbuildfarm_perl_path: "/usr/bin/perl"
+
+# Where to send cron mail to
+# You can use the host's /etc/aliases to override this or set it in hostvars.
+pgbuildfarm_cron_mailto: pgbuildfarm
+
+
+
+#
+#--------------- Settings from build-farm.conf --------------#
+#
+# Not everything is exposed here. If you want to change things not covered
+# here, copy the config template and set pgbuildfarm_config_template to the
+# path to your modified template.
+#
+
+pgbuildfarm_config_template: "build-farm.conf.j2"
+
+pgbuildfarm_use_vpath: true
+pgbuildfarm_make_jobs: "{{ansible_processor_cores}}"
+pgbuildfarm_base_port: 5678
+
+# A YAML list of configure options to pass
+pgbuildfarm_config_opts:
+  - "--enable-cassert"
+  - "--enable-debug"
+  - "--enable-nls"
+  - "--with-perl"
+  - "--with-python"
+  - "--with-tcl"
+  - "--with-gssapi"
+  - "--with-openssl"
+  - "--with-ldap"
+  - "--with-libxml"
+  - "--with-libxslt"
+
+# A YAML dictionary of environment vars to invoke 'configure' with. Values
+# must be quoted if they're Perl strings, e.g. "'string'".
+pgbuildfarm_config_env: { CC: "'ccache gcc'" }
+
+# A YAML dictionary of environment vars to set for 'make' etc
+pgbuildfarm_build_env: {}
+

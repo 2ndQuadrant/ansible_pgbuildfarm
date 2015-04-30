@@ -1,0 +1,8 @@
+---
+- name: Install perl LWP and Digest::SHA on RPM distros
+  yum: name="perl-Digest-SHA" state=latest
+  yum: name="{{item}}" state=latest
+  with_items:
+    - perl-Digest-SHA
+    - perl-libwww-perl
+  sudo: true
