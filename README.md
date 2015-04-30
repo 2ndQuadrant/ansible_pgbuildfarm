@@ -30,6 +30,8 @@ You *must* use a custom `ssh_config` or edit your `/etc/ssh/ssh_config`
 [Ansible bug 10698](https://github.com/ansible/ansible/issues/10698).
 If you don't then buildfarm member setup may fail.
 
+You must disable `requiretty` in `sudoers` for the Ansible user.
+
 If you want to report results to the PostgreSQL buildfarm you need to register
 there. You can use this role for private non-reporting members or testing
 first.
