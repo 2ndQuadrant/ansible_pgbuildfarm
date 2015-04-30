@@ -1,0 +1,12 @@
+---
+
+# The "host"s here is actually a group, from the [pgbuildfarm] entry in the hosts file
+# Most configuration is in roles/pgbuildfarm and in host_vars/ and group_vars/
+#
+# You can define multiple instances of the pgbuildfarm role if you want to run multiple
+# buildfarm configrations on a host; see http://docs.ansible.com/playbooks_roles.html#roles,
+# the README.md, and `multiple-members.yml`
+#
+- hosts: pgbuildfarm
+  roles:
+    - role: pgbuildfarm_member

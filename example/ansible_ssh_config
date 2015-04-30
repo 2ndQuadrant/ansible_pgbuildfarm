@@ -1,0 +1,5 @@
+# Note that we use this file with -F so it *overrides* the global ssh_config
+Host *
+	ForwardAgent no
+	ControlMaster=auto
+	ControlPersist=60s

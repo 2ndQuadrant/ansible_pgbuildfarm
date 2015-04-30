@@ -1,0 +1,34 @@
+---
+
+# The "host"s here is actually a group, from the [pgbuildfarm] entry in the hosts file
+# Most configuration is in roles/pgbuildfarm and in host_vars/ and group_vars/
+#
+# You can define multiple instances of the pgbuildfarm role if you want to run multiple
+# buildfarm configrations on a host; see http://docs.ansible.com/playbooks_roles.html#roles
+#
+# The vars here are defined in `group_vars/` and `host_vars/`. They're interpreted by
+# the `pgbuildfarm_member` role where they override values from its `defaults/main.yml`
+# to influence its tasks and templates.
+#
+- hosts: pgbuildfarm
+  roles:
+
+    - role: pgbuildfarm_member
+      pgbuildfarm_animal: "{{pgbuildfarm_animal_clang}}"
+      pgbuildfarm_secret: "{{pgbuildfarm_secret_clang}}"
+      pgbuildfarm_base_port: 5978
+      # Lets us disable clang builds on example1 because its old clang
+      # tends to fail, without needing to duplicate all the configs.
+      pgbuildfarm_enabled: "{{pgbuildfarm_enabled_clang}}"
+      pgbuildfarm_config_env:
+        # http://petereisentraut.blogspot.com.au/2011/05/ccache-and-clang.html
+        CC: "'ccache clang -Qunused-arguments'"
+
+    - role: pgbuildfarm_member
+      pgbuildfarm_animal: "{{pgbuildfarm_animal_gcc}}"
+      pgbuildfarm_secret: "{{pgbuildfarm_secret_gcc}}"
+      # Each animal needs a separate port
+      pgbuildfarm_base_port: 5678
+      pgbuildfarm_enabled: "{{pgbuildfarm_enabled_gcc}}"
+      pgbuildfarm_config_env:
+        CC: "'ccache gcc'"

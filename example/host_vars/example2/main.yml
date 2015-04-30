@@ -1,0 +1,15 @@
+---
+# Karman is a host out at OSU OSL, a POWER7 LPAR
+#
+# See http://docs.ansible.com/intro_inventory.html#list-of-behavioral-inventory-parameters
+ansible_ssh_host: example2.example.com
+ansible_ssh_port: 22
+ansible_ssh_user: ansible
+
+pgbuildfarm_make_jobs: 6
+pgbuildfarm_send_enabled: true
+
+pgbuildfarm_animal_gcc: quetzal
+pgbuildfarm_animal_clang: mallard
+pgbuildfarm_enabled_gcc: true
+pgbuildfarm_enabled_clang: true

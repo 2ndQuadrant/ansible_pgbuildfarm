@@ -1,0 +1,5 @@
+---
+
+# Nothing to define here yet, we don't have any group vars
+# Put stuff you want to apply to all [pgbuildfarm] members
+# here.
