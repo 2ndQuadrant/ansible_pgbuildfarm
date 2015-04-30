@@ -13,8 +13,9 @@ Please *do not* contact the PostgreSQL buildfarm administrators about this
 Ansible role. This isn't an official part of the buildfarm tools. See "Author
 Information" below for contact details.
 
-An example Ansible playbook and configuration is provided in this role's
-`example/` directory. It is strongly recommended that you use it, or at least
+An example Ansible playbook and configuration is provided [in this role's
+`example/` directory](https://github.com/2ndQuadrant/ansible_pgbuildfarm/tree/master/example).
+It is strongly recommended that you use it, or at least
 review it, as it shows things like how to use the vault to store buildfarm
 member secrets, how to fix Ansible's SSH locale handling, etc.
 
