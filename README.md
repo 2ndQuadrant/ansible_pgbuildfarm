@@ -167,18 +167,18 @@ To set up your buildfarm member configuration:
 
    on RH/Fedora:
 
-      # redhat/Fedora
-      usermod -a -G adm,wheel ansible
+        # redhat/Fedora
+        usermod -a -G adm,wheel ansible
 
    is enough for passwordless sudo.
 
    On Debian/Ubuntu, use `sudo` instead of `wheel` in the above and in `visudo` change:
 
-       %sudo   ALL=NOPASSWD: ALL
+        %sudo   ALL=NOPASSWD: ALL
 
    to
 
-       %sudo   ALL=(ALL) NOPASSWD: ALL
+        %sudo   ALL=(ALL) NOPASSWD: ALL
 
    so you can `sudo -u` to any user, not just root.
 
