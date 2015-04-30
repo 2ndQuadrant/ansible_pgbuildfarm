@@ -135,9 +135,22 @@ Example Playbook
 
 See `example/pgbuildfarm_members.yml` and `example/multiple_members.yml`. Here's the simplest one:
 
+`playbook.yml`:
+
     - hosts: pgbuildfarm
       roles:
         - role: pgbuildfarm_member
+
+`inventory`:
+
+     [pgbuildfarm]
+     example1
+
+`host_vars/example1/main.yml`:
+
+     pgbuildfarm_animal: blackbear
+     pgbuildfarm_secret: roar
+     pgbuildfarm_send_enabled: false
 
 Usage
 -----
