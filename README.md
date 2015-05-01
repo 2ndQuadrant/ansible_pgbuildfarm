@@ -19,6 +19,11 @@ It is strongly recommended that you use it, or at least
 review it, as it shows things like how to use the vault to store buildfarm
 member secrets, how to fix Ansible's SSH locale handling, etc.
 
+Installation
+------------
+
+    sudo ansible-galaxy install 2ndquadrant.pgbuildfarm_member
+
 Requirements
 ------------
 
